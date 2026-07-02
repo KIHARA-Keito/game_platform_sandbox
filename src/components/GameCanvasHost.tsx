@@ -13,10 +13,21 @@ export function GameCanvasHost({ module }: GameCanvasHostProps) {
     if (!container) return
 
     const game = module.create()
-    game.mount(container)
+    const mountResult = game.mount(container)
+    let unmountedBeforeReady = false
+
+    Promise.resolve(mountResult).then(() => {
+      if (unmountedBeforeReady) game.destroy()
+    })
 
     return () => {
-      game.destroy()
+      if (mountResult instanceof Promise) {
+        // Destroying mid-init crashes Pixi (e.g. React StrictMode's mount->cleanup->mount
+        // cycle in dev). Defer to the .then() above once mount actually finishes.
+        unmountedBeforeReady = true
+      } else {
+        game.destroy()
+      }
     }
   }, [module])
 
